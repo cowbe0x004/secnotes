@@ -1,0 +1,136 @@
+MySQL error log
+/var/lib/mysql/host.domain.com.err
+Show MySQL Password length
+SELECT Host, User, Password FROM mysql.user WHERE LENGTH(Password) > 16;
+
+cpanel shows wrong mysql version
+rm -f /home/*/.cpanel-datastore/_usr_sbin_mysqld_--version
+rm -f /home/*/.cpanel/datastore/_usr_sbin_mysqld_--version
+
+Repair tables
+http://dev.mysql.com/doc/refman/5.0/en/repair.html
+
+show character set
+SHOW VARIABLES LIKE 'character_set%';
+SHOW VARIABLES LIKE 'collation%';
+
+Reset default 'mysql' db
+/usr/bin/mysql_install_db --verbose
+
+Backup myisam with read lock first,
+mysql> flush tables with read lock;
+mysql> flush logs;
+Then you can backup mysql data files, after backup is done,
+mysql> unlock tables;
+
+Notes about backing up myisam and innodb,
+For myisam use --lock-all-tables
+For innodb use --single-transaction
+MySQL system database should be backed up using myisam way.
+
+show permissions
+show grants for 'mod'@'localhost';
+GRANT FILE privilege
+GRANT FILE ON *.* TO 'cblaketa_laketah'@'localhost'
+
+Show database size
+SELECT s.schema_name, CONCAT(IFNULL(ROUND((SUM(t.data_length)+SUM(t.index_length))/1024/1024,2),0.00),"Mb") total_size, CONCAT(IFNULL(ROUND(((SUM(t.data_length)+SUM(t.index_length))-SUM(t.data_free))/1024/1024,2),0.00),"Mb") data_used, CONCAT(IFNULL(ROUND(SUM(data_free)/1024/1024,2),0.00),"Mb") data_free,IFNULL(ROUND((((SUM(t.data_length)+SUM(t.index_length))-SUM(t.data_free))/((SUM(t.data_length)+SUM(t.index_length)))*100),2),0) pct_used, COUNT(table_name) total_tables FROM INFORMATION_SCHEMA.SCHEMATA s LEFT JOIN INFORMATION_SCHEMA.TABLES t ON s.schema_name = t.table_schema WHERE s.schema_name = "mostlyu_s9y" GROUP BY s.schema_name ORDER BY pct_used DESC;
+
+Assign user to database
+USE mysql;
+GRANT ALL PRIVILEGES ON diction_test.* TO 'diction_test'@'localhost' WITH GRANT OPTION;
+UPDATE db SET Db='diction\_test' WHERE User='diction_test';
+
+Restore with source
+mysql
+use DATABASE;
+source SQL_DUMP
+
+Show current user
+select current_user();
+ 
+show all users
+select user,host from user;
+
+Import mysql database
+mysql -u USER -p DBNAME < dump.sql
+
+Show mysql info
+mysqladmin version
+mysqladmin variables
+
+fix privileges for 4.1
+/usr/bin/mysql_fix_privilege_tables
+
+ps -aux | grep mysql
+ps -A | grep mysql | wc -l
+
+reset root privileges
+#service mysqld stop
+#killall -9 mysqld
+mysqld_safe --skip-grant-tables &
+#safe_mysqld --skip-grant-tables & *// it will start mysql in safe mode in background. \\*
+<hit Entre Key>
+root@host [/]#mysql
+mysql>FLUSH PRIVILEGES;
+mysql>GRANT ALL PRIVILEGES ON *.* TO root@localhost IDENTIFIED BY 'modernbill99' WITH GRANT OPTION;
+mysql>FLUSH PRIVILEGES;
+mysql>\q
+root@host [/]# service mysql stop
+root@host [/]# service mysql start.
+
+Recreate sock
+cd /var/lib/mysql
+touch mysql.sock
+chown mysql:mysql mysql.sock
+chmod 1777 mysql.sock
+ln -s /var/lib/mysql/mysql.sock /tmp
+chmod 1777 /tmp
+/scripts/mysqlup --force
+/etc/rc.d/init.d/mysql restart
+
+testing connection
+<?php
+$user = "yargroup_testuser";
+$pass = "testuser";
+$database = "yargroup_testdb";
+$conn = mysql_connect(localhost, $user, $pass) or die
+        ('Error connecting to mysql');
+echo 'Connected to mysql';
+echo '\n';
+
+mysql_select_db($database) or die
+        ('Error connecting to database');
+echo 'Connected to database';
+?>
+
+Find which data is using innodb
+#!/usr/bin/perl
+# this finds any innodb tables on a server (with a _ in the db name)
+@dbs = `mysqlshow '%'`;
+for(@dbs){
+        #print;
+        $_ =~ m/(\w+_\w+)/;
+        $db = $1 ;
+        #print "[$db]" . "\n";
+        if($db){ push(@dblist,$db); }
+        # see if any of those dbs have innodb tables.
+        #mysqlshow -i  davesson_db '*' | grep InnoDB | awk '{ print $2 }'
+}
+foreach $db (@dblist){
+        #print $db;     
+        @innodbs  = `mysqlshow -i  $db '*' | grep InnoDB | awk '{ print \$2 }'`;
+        for(@innodbs){
+                $_ =~ m/(\w+)/;
+                $table = $1;
+                if($table){
+                        #print "$db $table \n";
+                         $innodb_tables{$db} .= " $table";
+                }
+        }
+}
+foreach $db (keys(%innodb_tables)){
+        print "$db " . $innodb_tables{$db} . "\n";
+}
+#if you cant get mysql to come up this will work from shell
+#for file in `find /var/lib/mysql/ -name '*.frm' | awk -F'.frm' '{ print $1 }'` ;do ls -la $file.MYI ; done > /dev/null

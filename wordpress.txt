@@ -1,0 +1,18 @@
+Wordpress Security
+    remove unused plugins and themes
+    change admin user name
+    change db prefix (during install or before installing in wp-config.php)
+    use secret keys
+    use https in wp-config.php
+        define('FORCE_SSL_LOGIN', true);
+        define('FORCE_SSL_ADMIN', ture);
+    use htaccess in wp-admin directory
+        AuthUserFile /dev/null
+        AuthGroupFile /dev/null
+        AuthName "Access Control"
+        AuthType Basic
+        order deny,allow
+        deny from all
+        # ip to whitelist
+        allow from 67.122.122.122
+    

