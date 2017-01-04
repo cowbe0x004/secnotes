@@ -1,4 +1,19 @@
-﻿## troubleshoot apache 500 internal error
+﻿## openssl certificates
+## generate csr from private key
+openssl req -new -key privkey.pem -sha256 -out new.csr
+## generate public key hash from crt
+openssl x509 -pubkey < cert.crt | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64
+## generate public key hash from csr
+openssl req -pubkey < cert.csr | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64
+## generate public key hash from private key
+openssl rsa -in cert.key -outform der -pubout | openssl dgst -sha256 -binary | openssl enc -base64
+## check CSR info
+openssl req -in cert.csr -noout -text
+
+## view postfix message contents
+postcat -vq XXXXXXXXXX
+
+## troubleshoot apache 500 internal error
 # workstation
 telnet domain.com 80
 GET / HTTP/1.1
@@ -55,7 +70,7 @@ kpartx -d -v -p p /dev/mapper/LVM-secteam_snapshot
 ## remove snapshot
 lvremove /dev/LVM/secteam_snapshot
 
-## find file creation time crtime
+## find file creation time crtime, ext4
 debugfs -R "stat <$(stat -c %i /etc/shadow)>" /dev/sdb8
 
 ## tcpdump POST and GET
@@ -488,7 +503,8 @@ gzinflate(base64_decode
 
 find . -type f | xargs file | grep -v image
 
-## Perl search and replace
+## mass update email shadow files
+for i in $(cat mails.txt ); do perl -pi -e 's/mails:\$/mails:!\$/g' $i; done
 
 ## Multiple lines search & replace
 
