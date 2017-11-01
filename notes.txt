@@ -12,6 +12,8 @@ openssl req -in cert.csr -noout -text
 
 ## view postfix message contents
 postcat -vq XXXXXXXXXX
+## remove postfix queue by email
+postqueue -p | tail -n +2 | awk 'BEGIN { RS = "" } / abcde@xyz\.net/ { print $1 }' | tr -d '*!' | postsuper -d -
 
 ## troubleshoot apache 500 internal error
 # workstation
