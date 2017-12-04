@@ -1,4 +1,8 @@
-﻿## openssl certificates
+﻿## check http methods
+curl -i -X OPTIONS http://SITE
+curl --insecure -i -X OPTIONS https://SITE
+
+## openssl certificates
 ## generate csr from private key
 openssl req -new -key privkey.pem -sha256 -out new.csr
 ## generate public key hash from crt
