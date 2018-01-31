@@ -1,4 +1,11 @@
-﻿## check http methods
+﻿## check for dynamically loaded libraries
+ldd /bin/ps
+# should produce the same result
+/lib64/ld-linux-x86-64.so.2 --list /bin/ps
+## /etc/ld.so.preload
+ipcs
+
+## check http methods
 curl -i -X OPTIONS http://SITE
 curl --insecure -i -X OPTIONS https://SITE
 
