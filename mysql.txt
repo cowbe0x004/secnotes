@@ -1,3 +1,10 @@
+## mysql user hash
+strings /var/lib/mysql/mysql/user.MYD
+select host, user, password from mysql.user;
+
+## see which user has FILE priv
+select user,file_priv from mysql.user where file_priv='Y';
+
 MySQL error log
 /var/lib/mysql/host.domain.com.err
 Show MySQL Password length
