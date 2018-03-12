@@ -1,6 +1,9 @@
 ## parallel matching operator @pm
 # faster than a regular expression
 
+## counts occurrence
+SecRule &ARGS ...
+
 # block ping back attacks
 SecRule SERVER_NAME "aoneassignments.com" "id:210000068,chain,msg:'Ping Back Attack'"
 SecRule REQUEST_URI "/" "chain"
