@@ -1,4 +1,7 @@
-﻿## check for dynamically loaded libraries
+﻿## find with pretty output
+find / -printf "%f\t%p\t%u\t%g\t%m\n" 2>/dev/null |column -t
+
+## check for dynamically loaded libraries
 ldd /bin/ps
 # should produce the same result
 /lib64/ld-linux-x86-64.so.2 --list /bin/ps
