@@ -1,4 +1,8 @@
-﻿# grep contents without commented lines
+﻿# change screen size
+stty size
+stty rows <NUM> cols <NUM>
+
+# grep contents without commented lines
 cat <FILE> |grep -v ^\# |grep .
 
 ## find with pretty output
