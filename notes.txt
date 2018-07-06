@@ -1,4 +1,8 @@
-﻿# change screen size
+﻿# tcpdump pcap convert timestamp, output frame.time_epoch first
+alias epoch2ansi='awk 'BEGIN {FS=OFS="\t"}; {$1=strftime("%F %T", $1); print}''
+tshark -n -r example.pcap ... -e frame.time_epoch ... |awk '{$1=strftime("F %T", $1}; print}'
+
+# change screen size
 stty size
 stty rows <NUM> cols <NUM>
 
