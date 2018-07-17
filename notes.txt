@@ -1,4 +1,10 @@
-﻿# tcpdump pcap convert timestamp, output frame.time_epoch first
+﻿# verify rpm signature, note last 8 digits of key id
+rpm -qi <PACKAGE>
+# list pgp keys
+rpm -qa gpg-pubkey*
+rpm -qi gpg-pubkey-<KEY_ID>-#######
+
+# tcpdump pcap convert timestamp, output frame.time_epoch first
 alias epoch2ansi='awk 'BEGIN {FS=OFS="\t"}; {$1=strftime("%F %T", $1); print}''
 tshark -n -r example.pcap ... -e frame.time_epoch ... |awk '{$1=strftime("F %T", $1}; print}'
 
