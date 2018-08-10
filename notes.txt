@@ -1,4 +1,13 @@
-﻿# verify rpm signature, note last 8 digits of key id
+﻿# tab as delimiter
+awk -F $(printf '\t') '{print $1 $2}'
+
+# grep and output only the matched text
+grep -o "<TEXT>"
+
+# python url decode
+python -c "import sys, urllib as ul; print ul.unquote(sys.stdin.read());"
+
+# verify rpm signature, note last 8 digits of key id
 rpm -qi <PACKAGE>
 # list pgp keys
 rpm -qa gpg-pubkey*
