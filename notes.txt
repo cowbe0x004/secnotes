@@ -1,4 +1,7 @@
-﻿# tab as delimiter
+﻿# convert epoch to utc
+cat log |awk '{$1=strftime("%F %T", $1, 1); print $0}'
+
+# tab as delimiter
 awk -F $(printf '\t') '{print $1 $2}'
 
 # grep and output only the matched text
