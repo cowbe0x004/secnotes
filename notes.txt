@@ -1,4 +1,5 @@
-﻿# Clears comments and the blank lines
+﻿
+# Clears comments and the blank lines
 grep -E -v "^(\s*|(;|#).*)$" file.conf
 
 # /^[^#]+ # Using this search regex in 'less' will highlight the lines that are not comments starting with '#'. 
