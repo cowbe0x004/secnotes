@@ -1,3 +1,4 @@
+
 ## mysql user hash
 strings /var/lib/mysql/mysql/user.MYD
 select host, user, password from mysql.user;
