@@ -1,4 +1,9 @@
-﻿
+﻿# reverse ssh tunnel to workstation behind firewall
+# from firewalled workstation
+ssh -f -N -T -R 22222:localhost:22 -p 1983 root@JUMP.SERVER
+# login to JUMP.SERVER, USER must exist
+ssh USER@localhost -p 22222
+
 # Clears comments and the blank lines
 grep -E -v "^(\s*|(;|#).*)$" file.conf
 
