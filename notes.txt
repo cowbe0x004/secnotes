@@ -1,4 +1,7 @@
-﻿# extract current in-memory bash history
+﻿# bash test open port
+timeout 2 bash -c '(echo > /dev/tcp/10.30.83.4/5044) >/dev/null 2>&1' && echo 'up' || echo 'down'
+
+# extract current in-memory bash history
 gdb -batch --eval 'attach <bash pid here>' --eval 'call write_history("/tmp/bashdump.txt")' --eval 'detach' --eval 'q'
 
 # track site redirects with curl
