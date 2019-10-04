@@ -1,4 +1,10 @@
-﻿# reverse ssh tunnel to workstation behind firewall
+﻿# extract current in-memory bash history
+gdb -batch --eval 'attach <bash pid here>' --eval 'call write_history("/tmp/bashdump.txt")' --eval 'detach' --eval 'q'
+
+# track site redirects with curl
+curl -v -L gmail.com  2>&1 | egrep "^> (Host:|GET)"
+
+# reverse ssh tunnel to workstation behind firewall
 # from firewalled workstation
 ssh -f -N -T -R 22222:localhost:22 -p 1983 root@JUMP.SERVER
 # login to JUMP.SERVER, USER must exist
