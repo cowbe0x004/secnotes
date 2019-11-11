@@ -1,4 +1,7 @@
-﻿# bash test open port
+﻿# return all IPs from ASN
+whois -h http://whois.radb.net -- '-i origin AS36459' |grep -Eo "([0-9.]+){4}/[0-9]+" |uniq
+
+# bash test open port
 timeout 2 bash -c '(echo > /dev/tcp/10.30.83.4/5044) >/dev/null 2>&1' && echo 'up' || echo 'down'
 
 # extract current in-memory bash history
