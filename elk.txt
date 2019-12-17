@@ -1,0 +1,13 @@
+## Kibana search operators
+# literal
+"error database"
+
+# proximity and fuzzyness operators, error and database are within 5 words
+"error database"~5
+# returns production and producation
+type:production~1
+
+# wildcard ?
+type:apach?_log
+
+
