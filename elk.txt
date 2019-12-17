@@ -7,7 +7,18 @@
 # returns production and producation
 type:production~1
 
-# wildcard ?
+# wildcard * . ?
 type:apach?_log
 
+# boosting (exception has more weight than error)
+database^8 exception^4 error^2
 
+# ranges, [ ] means or equal to
+response:[404 TO 500]
+# less than { }, 501 to 599
+response:{500 TO 599]
+
+# regular express, inside / and /
+/qui[a-z]k br~n fox/
+# capture IPs
+message:/[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/
